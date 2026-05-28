@@ -1,0 +1,14 @@
+services:
+  foruxi:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: foruxi:latest
+    container_name: foruxi
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      SOFFICE_BIN: soffice
+      SOFFICE_TIMEOUT_MS: "60000"
+    restart: unless-stopped
