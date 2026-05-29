@@ -10,6 +10,9 @@ FROM node:20-bookworm-slim AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+# Ensure /app/public exists even on a fresh clone with no static assets yet,
+# so the runner-stage COPY below never fails.
+RUN mkdir -p public
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 
