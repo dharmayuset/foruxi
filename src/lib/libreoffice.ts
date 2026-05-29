@@ -28,6 +28,15 @@ export async function convertToPdf(input: Buffer, originalName: string): Promise
   const stem = `input-${Date.now()}`;
   const inPath = path.join(dir, `${stem}${ext}`);
   const outPath = path.join(dir, `${stem}.pdf`);
+  // Per-conversion LibreOffice profile dir. On first launch soffice creates a
+  // "user installation" — config, registry, dconf cache. If $HOME isn't
+  // writable (common in hardened/non-root containers) it exits with code 77
+  // and the message "User installation could not be completed". Pointing
+  // `-env:UserInstallation` at our temp dir sidesteps the home-dir issue
+  // entirely and keeps each conversion fully isolated, so concurrent calls
+  // never fight over a shared profile lock.
+  const profilePath = path.join(dir, 'profile');
+  const profileUri = `file://${profilePath}`;
 
   try {
     await writeFile(inPath, input);
@@ -36,6 +45,7 @@ export async function convertToPdf(input: Buffer, originalName: string): Promise
       const proc = spawn(
         SOFFICE_BIN,
         [
+          `-env:UserInstallation=${profileUri}`,
           '--headless',
           '--norestore',
           '--nolockcheck',
@@ -47,7 +57,13 @@ export async function convertToPdf(input: Buffer, originalName: string): Promise
           dir,
           inPath,
         ],
-        { stdio: ['ignore', 'pipe', 'pipe'] },
+        {
+          stdio: ['ignore', 'pipe', 'pipe'],
+          // Some LibreOffice subcomponents still touch $HOME even with
+          // -env:UserInstallation set; aim them at the temp dir as a
+          // belt-and-braces guarantee.
+          env: { ...process.env, HOME: dir },
+        },
       );
 
       const killTimer = setTimeout(() => {

@@ -23,7 +23,8 @@ WORKDIR /app
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
     PORT=3000 \
-    SOFFICE_BIN=soffice
+    SOFFICE_BIN=soffice \
+    HOME=/home/nextjs
 
 # LibreOffice + a minimal font set so docs render correctly.
 # `fonts-liberation` covers Arial/Times/Courier metrics; `fonts-dejavu` covers
@@ -37,9 +38,13 @@ RUN apt-get update \
       ca-certificates \
  && rm -rf /var/lib/apt/lists/*
 
-# Non-root user for safety.
+# Non-root user with a real, writable HOME. LibreOffice creates a "user
+# installation" (config + dconf cache) on first launch and exits with code 77
+# if it can't write somewhere. We give the user a proper home directory and
+# also pass -env:UserInstallation per request from src/lib/libreoffice.ts.
 RUN groupadd --system --gid 1001 nodejs \
- && useradd  --system --uid 1001 --gid nodejs nextjs
+ && useradd  --system --uid 1001 --gid nodejs \
+      --create-home --home-dir /home/nextjs --shell /usr/sbin/nologin nextjs
 
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
